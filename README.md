@@ -1,99 +1,158 @@
-# demo_300 — Advanced Snowpipe Streaming
+# Snowpipe Streaming Telco Demo
 
-Production-grade CDR streaming demo showcasing **every** advanced feature
-of the Snowpipe Streaming high-performance architecture SDK.
+Production-grade demo that streams telecom **Call Detail Records (CDR)** into
+Snowflake using the high-performance [Snowpipe Streaming SDK](https://docs.snowflake.com/en/user-guide/data-load-snowpipe-streaming-overview) (Rust-based).
 
-## New in demo_300 (vs demo_200)
+Includes a **Streamlit in Snowflake** dashboard for real-time analytics.
+
+---
+
+## Features
 
 | Feature | Description |
 |---------|-------------|
-| **PII Encryption** | AES-Fernet encryption of phone numbers client-side before data leaves the producer. Snowflake stores only ciphertext. Masked display columns for safe querying. |
-| **Prometheus Metrics** | Dual-layer: SDK built-in (`:50000`) + app-level custom counters/gauges (`:9100`). |
-| **GEOGRAPHY** | Cell tower lat/lon as GeoJSON points → native `GEOGRAPHY` type via `TRY_TO_GEOGRAPHY` in-flight. |
-| **GEOMETRY** | Hexagonal coverage polygons as WKT → native `GEOMETRY` type via `TRY_TO_GEOMETRY` in-flight. |
-| **Semi-structured** | `device_info` (VARIANT), `service_tags` (ARRAY), `network_measurements` (OBJECT) — all passed as native Python types per best practices. |
-| **In-flight Transforms** | PIPE applies `UPPER`, `TRIM`, `ROUND`, `TRY_TO_GEOGRAPHY`, `TRY_TO_GEOMETRY` during ingestion. |
-| **Schema Evolution** | Second pipe (`CDR_SCHEMA_EVOLVE_PIPE_300`) with `MATCH_BY_COLUMN_NAME = CASE_INSENSITIVE` and `ENABLE_SCHEMA_EVOLUTION = TRUE`. |
-| **Metadata Columns** | `channel_id`, `stream_offset`, `pipe_id` per Snowflake best practices for offset-gap detection. |
-| **Deterministic Channels** | Channel names follow `prefix-clientname` convention for easier debugging. |
-| **Offset-Gap Detection** | SQL view `V_OFFSET_GAPS_300` identifies missing records (Snowflake best practice). |
+| **PII Encryption** | AES-Fernet encryption of phone numbers client-side before data leaves the producer |
+| **Prometheus Metrics** | Dual-layer: SDK built-in (`:50000`) + app-level custom counters (`:9100`) |
+| **GEOGRAPHY** | Cell tower lat/lon as GeoJSON points via `TRY_TO_GEOGRAPHY` |
+| **GEOMETRY** | Hexagonal coverage polygons as WKT via `TRY_TO_GEOMETRY` |
+| **Semi-structured** | `device_info` (VARIANT), `service_tags` (ARRAY), `network_measurements` (OBJECT) |
+| **In-flight Transforms** | PIPE applies `UPPER`, `TRIM`, `ROUND`, `TRY_TO_GEOGRAPHY`, `TRY_TO_GEOMETRY` |
+| **Schema Evolution** | `MATCH_BY_COLUMN_NAME` + `ENABLE_SCHEMA_EVOLUTION = TRUE` |
+| **HTTP-aware Retry** | Status-code-specific handling: 409 (channel reopen), 429 (throttle), 401/403 (abort), 500/503 (backoff) |
+| **Offset-Gap Detection** | SQL view to identify missing records |
+| **Dead-Letter Queue** | Failed records streamed to Snowflake + local JSONL file |
+| **Streamlit Dashboard** | 5-page analytics dashboard running in Snowflake |
 
-## Architecture
+---
+
+## Project Structure
 
 ```
-  CDR Generator
-       │
-       ▼
-  PII Encryptor (AES-Fernet)
-       │  encrypt phone numbers
-       │  add masked display columns
-       ▼
-  Metadata Enrichment
-       │  channel_id, stream_offset, pipe_id
-       ▼
-  Client-side Validation
-       │
-  ┌────┴────┐
-  │ PASS    │ FAIL → DLQ (validation)
-  ▼         │
-  append_row() ──── HTTP-status-aware retry
-  │                 409 → channel reopen
-  │                 429 → throttle backoff
-  │                 401/403 → abort
-  │                 500/503 → exponential backoff
-  ▼
-  Snowflake PIPE (in-flight transforms)
-  │  UPPER(TRIM(call_type))
-  │  TRY_TO_GEOGRAPHY(tower_location)
-  │  TRY_TO_GEOMETRY(coverage_area)
-  │  ROUND(duration_seconds, 2)
-  ▼
-  CDR_RECORDS_300 table
-       │
-  Prometheus ◄── SDK metrics (:50000)
-  Prometheus ◄── App metrics (:9100)
+snowpipe-streaming-telco-demo/
+├── README.md
+├── requirements.txt
+├── profile.json.example        # Credential template (copy → profile.json)
+│
+├── sql/
+│   └── 01_snowflake_setup.sql  # DDL: tables, pipes, views, roles, grants
+│
+├── src/
+│   ├── run_demo.py             # Main entry point
+│   ├── streaming_client.py     # Resilient client with retry + DLQ
+│   ├── cdr_generator.py        # CDR data generator (geo, device, network)
+│   ├── pii_encryptor.py        # AES-Fernet PII encryption
+│   └── metrics_tracker.py      # Prometheus + console dashboard metrics
+│
+├── streamlit/
+│   ├── streamlit_app.py        # Streamlit in Snowflake analytics dashboard
+│   └── environment.yml         # Streamlit app dependencies (pydeck)
+│
+└── tests/
+    └── test_schema_evolution.py  # Interactive schema evolution test
 ```
 
-## Prerequisites
+---
 
-1. **Snowflake objects** — run `01_snowflake_setup.sql` in Snowflake
-2. **Python environment** — use the `snowpipe-streaming-v2` virtualenv
-3. **Install dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
-4. **profile.json** — update with your account credentials and private key
+## Quick Start
 
-## How to Run
+### 1. Set up Snowflake objects
 
-### Basic run (200 cycles)
+Open `sql/01_snowflake_setup.sql` in Snowflake and run it. This creates:
+
+- Warehouse, database, schema
+- CDR table with GEOGRAPHY, GEOMETRY, VARIANT, ARRAY, OBJECT columns
+- Pipes with in-flight transformations
+- Schema evolution table + pipe
+- Dead-letter queue table + pipe
+- Monitoring views
+- Role with least-privilege grants
+
+### 2. Configure credentials
 
 ```bash
-cd demo_300
-python run_demo.py
+cp profile.json.example profile.json
 ```
 
-### CLI options
+Edit `profile.json` with your Snowflake account details:
+
+```json
+{
+  "account": "<your_snowflake_account>",
+  "user": "<your_snowflake_user>",
+  "url": "https://<your_account>.snowflakecomputing.com:443",
+  "role": "CDR_STREAMING_ROLE_300",
+  "private_key": "<base64_encoded_private_key>"
+}
+```
+
+> Generate the private key value: `base64 -i rsa_key.p8 | tr -d '\n'`
+
+### 3. Install dependencies
 
 ```bash
-python run_demo.py --cycles 50          # shorter run
-python run_demo.py --cycles 0           # infinite (Ctrl+C to stop)
-python run_demo.py --bad-pct 0.10       # 10% bad records
-python run_demo.py --no-pii            # disable PII encryption
-python run_demo.py --prom-port 9200    # custom Prometheus port
-python run_demo.py --batch-size 200    # larger batches
+pip install -r requirements.txt
 ```
+
+### 4. Run the streaming demo
+
+```bash
+python src/run_demo.py
+```
+
+That's it! The demo will stream ~200 cycles of CDR data into Snowflake.
+
+---
+
+## CLI Options
+
+```bash
+python src/run_demo.py --cycles 50          # shorter run
+python src/run_demo.py --cycles 0           # infinite (Ctrl+C to stop)
+python src/run_demo.py --bad-pct 0.10       # 10% bad records
+python src/run_demo.py --no-pii             # disable PII encryption
+python src/run_demo.py --prom-port 9200     # custom Prometheus port
+python src/run_demo.py --batch-size 200     # larger batches
+```
+
+---
+
+## Streamlit Dashboard
+
+The `streamlit/streamlit_app.py` is a **Streamlit in Snowflake (SiS)** app. It
+provides 5 analytics views over the streaming data:
+
+| Page | What it shows |
+|------|---------------|
+| **Overview** | Total records, call type / status / network distribution |
+| **Streaming Health** | Ingestion latency, error rate trends, offset gap detection |
+| **Error Analysis** | Dead-letter queue breakdown, errors by channel, schema evolution audit |
+| **Tower Analytics** | Interactive tower heatmap (pydeck), call counts, dropped calls |
+| **Device Analytics** | Device make/model breakdown, signal strength, service tag distribution |
+
+### How to deploy
+
+1. In Snowflake, go to **Streamlit** and create a new app
+2. Upload `streamlit/streamlit_app.py` as the main file
+3. Upload `streamlit/environment.yml` for the `pydeck` dependency
+4. Set the app warehouse and select the `CDR_STREAMING_300` schema
+5. Run the app — it queries the views created by `sql/01_snowflake_setup.sql`
+
+> The dashboard auto-refreshes every 60 seconds. Run it alongside the streaming
+> demo to see data flowing in real time.
+
+---
+
+## Monitoring
 
 ### Prometheus endpoints
 
-After starting, two Prometheus endpoints are available:
+After starting the demo, two Prometheus endpoints are available:
 
 | Endpoint | Source | Metrics |
 |----------|--------|---------|
-| `http://127.0.0.1:50000/metrics` | SDK built-in | Flush latency, buffer size, HTTP request stats |
-| `http://127.0.0.1:9100/metrics` | App-level | `cdr_rows_submitted_total`, `cdr_errors_total`, `cdr_batch_latency_seconds`, etc. |
+| `http://127.0.0.1:50000/metrics` | SDK built-in | Flush latency, buffer size, HTTP stats |
+| `http://127.0.0.1:9100/metrics` | App-level | `cdr_rows_submitted_total`, `cdr_errors_total`, etc. |
 
-Verify with:
 ```bash
 curl http://127.0.0.1:50000/metrics    # SDK metrics
 curl http://127.0.0.1:9100/metrics     # App metrics
@@ -111,21 +170,42 @@ scrape_configs:
       - targets: ['127.0.0.1:9100']
 ```
 
-## Snowflake Objects (all suffixed `_300`)
+### App-level metrics reference
 
-| Object | Type | Purpose |
-|--------|------|---------|
-| `CDR_STREAMING_WH_300` | Warehouse | Compute |
-| `CDR_STREAMING_300` | Schema | All demo_300 objects |
-| `CDR_RECORDS_300` | Table | Main CDR table with GEOGRAPHY, GEOMETRY, VARIANT, ARRAY, OBJECT |
-| `CDR_RECORDS_EVOLVED_300` | Table | Schema evolution target (ENABLE_SCHEMA_EVOLUTION=TRUE) |
-| `CDR_DEAD_LETTER_300` | Table | Dead-letter queue |
-| `CDR_STREAMING_PIPE_300` | Pipe | Main pipe with in-flight transforms |
-| `CDR_SCHEMA_EVOLVE_PIPE_300` | Pipe | Schema evolution pipe (MATCH_BY_COLUMN_NAME) |
-| `CDR_DLQ_PIPE_300` | Pipe | DLQ pipe |
-| `CDR_STREAMING_ROLE_300` | Role | Least-privilege role |
+| Metric | Type | Description |
+|--------|------|-------------|
+| `cdr_rows_submitted_total` | Counter | Total rows submitted |
+| `cdr_rows_committed` | Gauge | Latest committed count |
+| `cdr_batches_sent_total` | Counter | Total batches |
+| `cdr_errors_total{category}` | Counter | Errors by category |
+| `cdr_retries_total` | Counter | Retry attempts |
+| `cdr_channel_recoveries_total` | Counter | Channel recovery events |
+| `cdr_dead_letter_total` | Counter | DLQ records |
+| `cdr_batch_latency_seconds` | Histogram | Per-batch send time |
+| `cdr_commit_lag` | Gauge | Submitted minus committed |
+| `cdr_pii_encryptions_total` | Counter | Fields encrypted |
 
-## Monitoring Views
+---
+
+## Snowflake Objects
+
+### Tables
+
+| Object | Purpose |
+|--------|---------|
+| `CDR_RECORDS_300` | Main CDR table with GEOGRAPHY, GEOMETRY, VARIANT, ARRAY, OBJECT |
+| `CDR_RECORDS_EVOLVED_300` | Schema evolution target |
+| `CDR_DEAD_LETTER_300` | Dead-letter queue |
+
+### Pipes
+
+| Object | Purpose |
+|--------|---------|
+| `CDR_STREAMING_PIPE_300` | Main pipe with in-flight transforms |
+| `CDR_SCHEMA_EVOLVE_PIPE_300` | Schema evolution pipe (`MATCH_BY_COLUMN_NAME`) |
+| `CDR_DLQ_PIPE_300` | DLQ pipe |
+
+### Monitoring Views
 
 | View | What it shows |
 |------|---------------|
@@ -134,50 +214,62 @@ scrape_configs:
 | `V_ERROR_RATE_300` | Good vs bad rows per minute |
 | `V_ERROR_BY_CHANNEL_300` | Errors grouped by channel |
 | `V_OFFSET_GAPS_300` | Missing records (offset gaps) |
-| `V_TOWER_HEATMAP_300` | GEOGRAPHY: tower call counts + dropped calls |
-| `V_DEVICE_ANALYTICS_300` | VARIANT: device make/model breakdown |
-| `V_SERVICE_TAG_DIST_300` | ARRAY: flattened service tag usage |
+| `V_TOWER_HEATMAP_300` | Tower call counts + dropped calls |
+| `V_DEVICE_ANALYTICS_300` | Device make/model breakdown |
+| `V_SERVICE_TAG_DIST_300` | Service tag usage |
 | `V_SCHEMA_EVOLUTION_300` | Schema evolution audit trail |
 
-## App-level Prometheus Metrics
+---
 
-| Metric | Type | Description |
-|--------|------|-------------|
-| `cdr_rows_submitted_total` | Counter | Total rows submitted |
-| `cdr_rows_committed` | Gauge | Latest committed count |
-| `cdr_batches_sent_total` | Counter | Total batches |
-| `cdr_errors_total{category}` | Counter | Errors by category (validation, send_http409, auth, ...) |
-| `cdr_retries_total` | Counter | Retry attempts |
-| `cdr_channel_recoveries_total` | Counter | Channel recovery events |
-| `cdr_dead_letter_total` | Counter | DLQ records |
-| `cdr_batch_latency_seconds` | Histogram | Per-batch send time |
-| `cdr_commit_lag` | Gauge | Submitted - committed |
-| `cdr_pii_encryptions_total` | Counter | Fields encrypted |
+## Testing Schema Evolution
 
-## File Reference
+Run the interactive schema evolution test to see Snowflake auto-add columns:
 
-| File | Purpose |
-|------|---------|
-| `01_snowflake_setup.sql` | DDL: tables, pipes (with transforms), views, role, grants |
-| `profile.json` | Snowflake connection credentials |
-| `requirements.txt` | Python dependencies |
-| `pii_encryptor.py` | AES-Fernet PII encryption + phone masking |
-| `cdr_generator.py` | CDR data generator with GeoJSON, WKT, device_info, service_tags |
-| `metrics_tracker.py` | Prometheus + console dashboard metrics |
-| `streaming_client.py` | Resilient client with PII, metadata, HTTP-aware retry |
-| `run_demo.py` | Main entry point |
+```bash
+python tests/test_schema_evolution.py
+```
 
-## Best Practices Applied (per Snowflake docs)
+The test sends 3 phases of records, each adding new fields. Snowflake
+automatically evolves the `CDR_RECORDS_EVOLVED_300` table schema.
+
+---
+
+## Architecture
+
+```
+  CDR Generator ──► PII Encryptor ──► Metadata Enrichment ──► Validation
+                    (AES-Fernet)      (channel_id,              │
+                                       stream_offset,      ┌────┴────┐
+                                       pipe_id)            │ PASS    │ FAIL → DLQ
+                                                           ▼
+                                                     append_row()
+                                                           │  HTTP-aware retry
+                                                           │  409 → channel reopen
+                                                           │  429 → throttle backoff
+                                                           │  401/403 → abort
+                                                           │  500/503 → exp backoff
+                                                           ▼
+                                                     Snowflake PIPE
+                                                     (in-flight transforms)
+                                                           ▼
+                                                     CDR_RECORDS_300
+                                                           │
+                                              Prometheus ◄─┤
+                                              Dashboard  ◄─┘ (Streamlit in Snowflake)
+```
+
+---
+
+## Best Practices Applied
 
 - [x] Long-lived channels (open once, keep active)
 - [x] Deterministic channel names (`prefix-clientname`)
-- [x] Client-side validation before append_row
-- [x] Client-side metadata columns (channel_id, stream_offset, pipe_id)
-- [x] Offset-gap detection SQL
-- [x] MATCH_BY_COLUMN_NAME for schema evolution
-- [x] Native Python types for semi-structured data (no string serialisation)
+- [x] Client-side validation before `append_row`
+- [x] Client-side metadata columns for offset-gap detection
+- [x] `MATCH_BY_COLUMN_NAME` for schema evolution
+- [x] Native Python types for semi-structured data (no string serialization)
 - [x] Prometheus metrics (SDK + app-level)
-- [x] Try-catch with HTTP status code interpretation (409, 429, 401, 500)
+- [x] HTTP status code interpretation with retry logic
 - [x] Exponential backoff for retryable errors
-- [x] Verify progress with offset tokens
-- [x] Monitor channel status via get_channel_status()
+- [x] Commit progress verification with offset tokens
+- [x] Channel health monitoring via `get_channel_status()`

@@ -27,7 +27,7 @@ from cryptography.fernet import Fernet
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_KEY_FILE = os.path.join(os.path.dirname(__file__), ".pii_key")
+_DEFAULT_KEY_FILE = os.path.join(os.path.dirname(__file__), "..", ".pii_key")
 
 
 class PIIEncryptor:

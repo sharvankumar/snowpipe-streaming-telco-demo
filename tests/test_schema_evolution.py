@@ -26,7 +26,8 @@ import sys
 import time
 import uuid
 
-sys.path.insert(0, os.path.dirname(__file__))
+_PROJECT_ROOT = os.path.join(os.path.dirname(__file__), "..")
+sys.path.insert(0, os.path.join(_PROJECT_ROOT, "src"))
 os.environ.setdefault("SS_LOG_LEVEL", "warn")
 
 from snowflake.ingest.streaming import StreamingIngestClient
@@ -37,7 +38,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-PROFILE_JSON = os.path.join(os.path.dirname(__file__), "profile.json")
+PROFILE_JSON = os.path.join(_PROJECT_ROOT, "profile.json")
 DATABASE = "TELCO_ANALYTICS"
 SCHEMA = "CDR_STREAMING_300"
 PIPE = "CDR_SCHEMA_EVOLVE_PIPE_300"

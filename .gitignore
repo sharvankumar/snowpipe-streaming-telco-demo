@@ -10,7 +10,7 @@ profile.json
 !profile.json.example
 !.env.example
 
-# ── Dead-letter queue logs (runtime artifacts) ──
+# ── Runtime artifacts ──
 dead_letters.jsonl
 
 # ── Python ──

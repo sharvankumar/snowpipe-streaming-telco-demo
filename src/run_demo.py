@@ -169,7 +169,7 @@ def main():
     logger.info("Waiting for remaining rows to commit ...")
     client.wait_for_commit()
 
-    dlq_path = os.path.join(os.path.dirname(__file__), args.dlq_file)
+    dlq_path = os.path.join(os.path.dirname(__file__), "..", args.dlq_file)
     flushed = client.dlq.flush_to_file(dlq_path)
     if flushed:
         logger.info("Flushed %d dead-letter records to %s", flushed, dlq_path)

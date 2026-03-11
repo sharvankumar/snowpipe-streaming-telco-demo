@@ -39,7 +39,7 @@ _DEFAULTS = {
     "database": "TELCO_ANALYTICS",
     "schema": "CDR_STREAMING_300",
     "pipe_name": "CDR_STREAMING_PIPE_300",
-    "profile_json": os.path.join(os.path.dirname(__file__), "profile.json"),
+    "profile_json": os.path.join(os.path.dirname(__file__), "..", "profile.json"),
     "max_retries": 3,
     "base_backoff_s": 1.0,
     "max_backoff_s": 30.0,
