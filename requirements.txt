@@ -1,0 +1,30 @@
+# Snowpipe Streaming High-Performance Architecture — demo_300
+# =============================================================
+# Advanced features: PII encryption, Prometheus metrics,
+# GEOGRAPHY/GEOMETRY types, semi-structured data (ARRAY, OBJECT)
+
+# Core Snowflake Streaming SDK (Rust-based, high-performance)
+snowpipe-streaming>=1.2.0
+
+# Snowflake connector for management operations
+snowflake-connector-python>=3.6.0
+
+# Key-pair authentication (required for streaming SDK)
+cryptography>=41.0.0
+
+# JWT token handling
+pyjwt>=2.8.0
+
+# Prometheus metrics — application-level custom gauges/counters
+# (SDK has built-in Prometheus via SS_ENABLE_METRICS=true)
+prometheus-client>=0.21.0
+
+# GeoJSON validation for GEOGRAPHY type data
+geojson>=3.1.0
+
+# Shapely for GEOMETRY generation (WKT polygons, buffers)
+shapely>=2.0.0
+
+# Development and testing
+pytest>=7.4.0
+python-dotenv>=1.0.0

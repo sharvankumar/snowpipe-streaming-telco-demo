@@ -1,0 +1,5 @@
+name: sf_env
+channels:
+  - snowflake
+dependencies:
+  - pydeck=0.8.0

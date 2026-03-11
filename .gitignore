@@ -1,0 +1,40 @@
+# ── Credentials & secrets ──
+profile.json
+.pii_key
+.env
+*.pem
+*.p8
+*.key
+
+# Keep example/template files
+!profile.json.example
+!.env.example
+
+# ── Dead-letter queue logs (runtime artifacts) ──
+dead_letters.jsonl
+
+# ── Python ──
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+.venv/
+venv/
+env/
+
+# ── Jupyter ──
+.ipynb_checkpoints/
+
+# ── OS files ──
+.DS_Store
+Thumbs.db
+
+# ── IDE ──
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
