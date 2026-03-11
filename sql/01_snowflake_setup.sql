@@ -209,8 +209,8 @@ SELECT
     COUNT(*)                                    AS rows_ingested,
     MIN(ingestion_time)                         AS first_row,
     MAX(ingestion_time)                         AS last_row,
-    DATEDIFF('second', MIN(call_start_time), MIN(ingestion_time)) AS approx_latency_s
-FROM CDR_RECORDS_300
+    ABS(DATEDIFF('second', MIN(call_start_time), MIN(ingestion_time))) AS approx_latency_s
+FROM TELCO_ANALYTICS.CDR_STREAMING_300.CDR_RECORDS_300
 WHERE ingestion_time >= DATEADD('day', -30, CURRENT_TIMESTAMP())
 GROUP BY 1
 ORDER BY 1 DESC;

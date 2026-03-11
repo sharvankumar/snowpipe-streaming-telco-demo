@@ -138,6 +138,18 @@ elif page == "Streaming Health":
     
     # Streaming latency
     st.subheader("Streaming Latency (Last 30 Days)")
+    with st.expander("ℹ️ What is Streaming Latency?"):
+        st.markdown("""
+    **Streaming Latency** measures the delay between:
+    - **Event Time**: When the CDR record was generated (`call_start_time`)
+    - **Ingestion Time**: When it arrived in Snowflake (`ingestion_time`)
+    
+    | Latency | Status |
+    |---------|--------|
+    | < 5s | Excellent |
+    | 5-30s | Good |
+    | > 30s | Review pipeline |
+    """)
     latency_df = run_query("SELECT * FROM TELCO_ANALYTICS.CDR_STREAMING_300.V_STREAMING_LATENCY_300 LIMIT 60")
     if not latency_df.empty:
         col1, col2 = st.columns(2)
