@@ -14,12 +14,7 @@ try:
 except ImportError:
     PYDECK_AVAILABLE = False
 
-# Page configuration
-st.set_page_config(
-    page_title="Telco CDR Analytics",
-    page_icon="📡",
-    layout="wide"
-)
+# Page configuration (note: page_title and page_icon not supported in SiS)
 
 # Get Snowflake session
 session = get_active_session()
@@ -34,9 +29,10 @@ st.markdown("""
         margin: 5px 0;
     }
     .stMetric {
-        background-color: #262730;
+        background-color: #ffffff;
         padding: 15px;
         border-radius: 10px;
+        border: 1px solid #e0e0e0;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -44,6 +40,13 @@ st.markdown("""
 # Title
 st.title("📡 Telco CDR Analytics Dashboard")
 st.markdown("Real-time analytics for Call Detail Records streaming pipeline")
+
+# Disclaimer
+st.info(
+    "**Note:** This dashboard shows data from the last 30 days. "
+    "If you're not seeing data, run the streaming producer script to populate records. "
+    "Setup: [snowpipe-streaming-telco-demo](https://github.com/sharvankumar/snowpipe-streaming-telco-demo)"
+)
 
 # Sidebar for navigation
 st.sidebar.title("Navigation")
@@ -66,24 +69,24 @@ if page == "Overview":
     col1, col2, col3, col4 = st.columns(4)
     
     # Total records
-    total_records = run_query("SELECT COUNT(*) as cnt FROM CDR_RECORDS_300")
+    total_records = run_query("SELECT COUNT(*) as cnt FROM TELCO_ANALYTICS.CDR_STREAMING_300.CDR_RECORDS_300")
     col1.metric("Total CDR Records", f"{total_records['CNT'].iloc[0]:,}")
     
     # Records in last hour
     recent_records = run_query("""
-        SELECT COUNT(*) as cnt FROM CDR_RECORDS_300 
-        WHERE ingestion_time >= DATEADD('hour', -1, CURRENT_TIMESTAMP())
+        SELECT COUNT(*) as cnt FROM TELCO_ANALYTICS.CDR_STREAMING_300.CDR_RECORDS_300 
+        WHERE ingestion_time >= DATEADD('day', -30, CURRENT_TIMESTAMP())
     """)
-    col2.metric("Records (Last Hour)", f"{recent_records['CNT'].iloc[0]:,}")
+    col2.metric("Records (Last 30 Days)", f"{recent_records['CNT'].iloc[0]:,}")
     
     # Error count
-    error_count = run_query("SELECT COUNT(*) as cnt FROM CDR_DEAD_LETTER_300")
+    error_count = run_query("SELECT COUNT(*) as cnt FROM TELCO_ANALYTICS.CDR_STREAMING_300.CDR_DEAD_LETTER_300")
     col3.metric("Dead Letter Queue", f"{error_count['CNT'].iloc[0]:,}")
     
     # Unique towers
     tower_count = run_query("""
-        SELECT COUNT(DISTINCT cell_tower_id) as cnt FROM CDR_RECORDS_300
-        WHERE ingestion_time >= DATEADD('hour', -1, CURRENT_TIMESTAMP())
+        SELECT COUNT(DISTINCT cell_tower_id) as cnt FROM TELCO_ANALYTICS.CDR_STREAMING_300.CDR_RECORDS_300
+        WHERE ingestion_time >= DATEADD('day', -30, CURRENT_TIMESTAMP())
     """)
     col4.metric("Active Towers", f"{tower_count['CNT'].iloc[0]:,}")
     
@@ -96,8 +99,8 @@ if page == "Overview":
         st.subheader("Call Type Distribution")
         call_types = run_query("""
             SELECT call_type, COUNT(*) as count
-            FROM CDR_RECORDS_300
-            WHERE ingestion_time >= DATEADD('hour', -1, CURRENT_TIMESTAMP())
+            FROM TELCO_ANALYTICS.CDR_STREAMING_300.CDR_RECORDS_300
+            WHERE ingestion_time >= DATEADD('day', -30, CURRENT_TIMESTAMP())
             GROUP BY call_type
             ORDER BY count DESC
         """)
@@ -108,8 +111,8 @@ if page == "Overview":
         st.subheader("Call Status Distribution")
         call_status = run_query("""
             SELECT call_status, COUNT(*) as count
-            FROM CDR_RECORDS_300
-            WHERE ingestion_time >= DATEADD('hour', -1, CURRENT_TIMESTAMP())
+            FROM TELCO_ANALYTICS.CDR_STREAMING_300.CDR_RECORDS_300
+            WHERE ingestion_time >= DATEADD('day', -30, CURRENT_TIMESTAMP())
             GROUP BY call_status
             ORDER BY count DESC
         """)
@@ -120,8 +123,8 @@ if page == "Overview":
     st.subheader("Network Type Distribution")
     network_types = run_query("""
         SELECT network_type, COUNT(*) as count
-        FROM CDR_RECORDS_300
-        WHERE ingestion_time >= DATEADD('hour', -1, CURRENT_TIMESTAMP())
+        FROM TELCO_ANALYTICS.CDR_STREAMING_300.CDR_RECORDS_300
+        WHERE ingestion_time >= DATEADD('day', -30, CURRENT_TIMESTAMP())
         GROUP BY network_type
         ORDER BY count DESC
     """)
@@ -134,8 +137,8 @@ elif page == "Streaming Health":
     st.header("🔄 Streaming Health")
     
     # Streaming latency
-    st.subheader("Streaming Latency (Last Hour)")
-    latency_df = run_query("SELECT * FROM V_STREAMING_LATENCY_300 LIMIT 60")
+    st.subheader("Streaming Latency (Last 30 Days)")
+    latency_df = run_query("SELECT * FROM TELCO_ANALYTICS.CDR_STREAMING_300.V_STREAMING_LATENCY_300 LIMIT 60")
     if not latency_df.empty:
         col1, col2 = st.columns(2)
         with col1:
@@ -145,13 +148,13 @@ elif page == "Streaming Health":
         
         st.line_chart(latency_df.set_index('MINUTE')[['ROWS_INGESTED', 'APPROX_LATENCY_S']])
     else:
-        st.info("No latency data available for the last hour")
+        st.info("No latency data available for the last 30 days")
     
     st.divider()
     
     # Error rate
     st.subheader("Error Rate Over Time")
-    error_rate_df = run_query("SELECT * FROM V_ERROR_RATE_300")
+    error_rate_df = run_query("SELECT * FROM TELCO_ANALYTICS.CDR_STREAMING_300.V_ERROR_RATE_300")
     if not error_rate_df.empty:
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -170,7 +173,7 @@ elif page == "Streaming Health":
     
     # Offset gaps detection
     st.subheader("Offset Gaps (Data Integrity)")
-    offset_gaps_df = run_query("SELECT * FROM V_OFFSET_GAPS_300 LIMIT 100")
+    offset_gaps_df = run_query("SELECT * FROM TELCO_ANALYTICS.CDR_STREAMING_300.V_OFFSET_GAPS_300 LIMIT 100")
     if not offset_gaps_df.empty:
         st.warning(f"Found {len(offset_gaps_df)} offset gaps - potential data loss detected")
         st.dataframe(offset_gaps_df, use_container_width=True)
@@ -184,7 +187,7 @@ elif page == "Error Analysis":
     
     # DLQ Summary
     st.subheader("Dead Letter Queue Summary")
-    dlq_summary = run_query("SELECT * FROM V_DLQ_SUMMARY_300")
+    dlq_summary = run_query("SELECT * FROM TELCO_ANALYTICS.CDR_STREAMING_300.V_DLQ_SUMMARY_300")
     if not dlq_summary.empty:
         st.dataframe(dlq_summary, use_container_width=True)
         
@@ -197,7 +200,7 @@ elif page == "Error Analysis":
     
     # Error by channel
     st.subheader("Errors by Channel")
-    error_by_channel = run_query("SELECT * FROM V_ERROR_BY_CHANNEL_300")
+    error_by_channel = run_query("SELECT * FROM TELCO_ANALYTICS.CDR_STREAMING_300.V_ERROR_BY_CHANNEL_300")
     if not error_by_channel.empty:
         st.dataframe(error_by_channel, use_container_width=True)
     else:
@@ -207,7 +210,7 @@ elif page == "Error Analysis":
     
     # Schema evolution tracking
     st.subheader("Schema Evolution Tracking")
-    schema_evolution = run_query("SELECT * FROM V_SCHEMA_EVOLUTION_300")
+    schema_evolution = run_query("SELECT * FROM TELCO_ANALYTICS.CDR_STREAMING_300.V_SCHEMA_EVOLUTION_300")
     if not schema_evolution.empty:
         st.dataframe(schema_evolution, use_container_width=True)
     else:
@@ -228,7 +231,7 @@ elif page == "Tower Analytics":
             avg_duration,
             total_data_mb,
             dropped_calls
-        FROM V_TOWER_HEATMAP_300
+        FROM TELCO_ANALYTICS.CDR_STREAMING_300.V_TOWER_HEATMAP_300
         WHERE tower_location IS NOT NULL
     """)
     
@@ -307,7 +310,7 @@ elif page == "Tower Analytics":
             use_container_width=True
         )
     else:
-        st.info("No tower data available for the last hour")
+        st.info("No tower data available for the last 30 days")
 
 
 # ============== DEVICE ANALYTICS PAGE ==============
@@ -315,7 +318,7 @@ elif page == "Device Analytics":
     st.header("📱 Device Analytics")
     
     # Device analytics
-    device_df = run_query("SELECT * FROM V_DEVICE_ANALYTICS_300")
+    device_df = run_query("SELECT * FROM TELCO_ANALYTICS.CDR_STREAMING_300.V_DEVICE_ANALYTICS_300")
     
     if not device_df.empty:
         # Summary metrics
@@ -353,13 +356,13 @@ elif page == "Device Analytics":
         st.subheader("Device Details")
         st.dataframe(device_df, use_container_width=True)
     else:
-        st.info("No device data available for the last hour")
+        st.info("No device data available for the last 30 days")
     
     st.divider()
     
     # Service tag distribution
     st.subheader("Service Tag Distribution")
-    service_tags = run_query("SELECT * FROM V_SERVICE_TAG_DIST_300")
+    service_tags = run_query("SELECT * FROM TELCO_ANALYTICS.CDR_STREAMING_300.V_SERVICE_TAG_DIST_300")
     if not service_tags.empty:
         st.bar_chart(service_tags.set_index('SERVICE_TAG')['USAGE_COUNT'])
         st.dataframe(service_tags, use_container_width=True)
@@ -369,4 +372,4 @@ elif page == "Device Analytics":
 
 # Footer
 st.divider()
-st.caption("Data refreshes every 60 seconds | Built with Streamlit in Snowflake")
+st.caption("Data refreshes every 60 seconds | Built with Streamlit in Snowflake | [Setup Guide](https://github.com/sharvankumar/snowpipe-streaming-telco-demo)")

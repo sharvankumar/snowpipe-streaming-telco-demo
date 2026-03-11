@@ -211,7 +211,7 @@ SELECT
     MAX(ingestion_time)                         AS last_row,
     DATEDIFF('second', MIN(call_start_time), MIN(ingestion_time)) AS approx_latency_s
 FROM CDR_RECORDS_300
-WHERE ingestion_time >= DATEADD('hour', -1, CURRENT_TIMESTAMP())
+WHERE ingestion_time >= DATEADD('day', -30, CURRENT_TIMESTAMP())
 GROUP BY 1
 ORDER BY 1 DESC;
 
@@ -240,14 +240,14 @@ FROM (
     SELECT DATE_TRUNC('minute', ingestion_time) AS minute,
            COUNT(*)                             AS good_rows
     FROM   CDR_RECORDS_300
-    WHERE  ingestion_time >= DATEADD('hour', -1, CURRENT_TIMESTAMP())
+    WHERE  ingestion_time >= DATEADD('day', -30, CURRENT_TIMESTAMP())
     GROUP BY 1
 ) m
 FULL OUTER JOIN (
     SELECT DATE_TRUNC('minute', created_at) AS minute,
            COUNT(*)                         AS bad_rows
     FROM   CDR_DEAD_LETTER_300
-    WHERE  created_at >= DATEADD('hour', -1, CURRENT_TIMESTAMP())
+    WHERE  created_at >= DATEADD('day', -30, CURRENT_TIMESTAMP())
     GROUP BY 1
 ) d ON m.minute = d.minute
 ORDER BY COALESCE(m.minute, d.minute) DESC;
@@ -291,7 +291,7 @@ SELECT
     SUM(data_usage_mb)                          AS total_data_mb,
     SUM(CASE WHEN call_status = 'DROPPED' THEN 1 ELSE 0 END) AS dropped_calls
 FROM CDR_RECORDS_300
-WHERE ingestion_time >= DATEADD('hour', -1, CURRENT_TIMESTAMP())
+WHERE ingestion_time >= DATEADD('day', -30, CURRENT_TIMESTAMP())
   AND tower_location IS NOT NULL
 GROUP BY cell_tower_id
 ORDER BY call_count DESC;
@@ -307,7 +307,7 @@ SELECT
     AVG(network_measurements:signal_strength_dbm::FLOAT)
                                                 AS avg_signal_strength
 FROM CDR_RECORDS_300
-WHERE ingestion_time >= DATEADD('hour', -1, CURRENT_TIMESTAMP())
+WHERE ingestion_time >= DATEADD('day', -30, CURRENT_TIMESTAMP())
 GROUP BY 1, 2, 3
 ORDER BY call_count DESC;
 
@@ -318,7 +318,7 @@ SELECT
     COUNT(*)                                    AS usage_count
 FROM CDR_RECORDS_300,
      LATERAL FLATTEN(input => service_tags) tag
-WHERE ingestion_time >= DATEADD('hour', -1, CURRENT_TIMESTAMP())
+WHERE ingestion_time >= DATEADD('day', -30, CURRENT_TIMESTAMP())
 GROUP BY 1
 ORDER BY usage_count DESC;
 
