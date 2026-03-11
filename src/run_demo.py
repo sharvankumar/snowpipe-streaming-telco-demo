@@ -37,7 +37,7 @@ os.environ.setdefault("SS_LOG_LEVEL", "warn")
 
 from cdr_generator import CDRGenerator, TrafficProfile
 from metrics_tracker import MetricsTracker
-from streaming_client import ResilientStreamingClient
+from streaming_client import ResilientStreamingClient, resolve_profile
 
 logging.basicConfig(
     level=logging.INFO,
@@ -93,6 +93,10 @@ def parse_args():
                    help="Disable PII encryption (send raw phone numbers).")
     p.add_argument("--prom-port", type=int, default=9100,
                    help="App-level Prometheus metrics port. Default 9100.")
+    p.add_argument("--profile", type=str, default=None,
+                   help="Snowflake profile name (e.g. 'afe', 'default'). "
+                        "Resolves profiles/profile_{name}.json. "
+                        "Falls back to SNOWFLAKE_PROFILE env var, then 'default'.")
     return p.parse_args()
 
 
@@ -104,11 +108,14 @@ def main():
     args = parse_args()
     print(BANNER)
 
+    profile_path = resolve_profile(args.profile)
+
     metrics = MetricsTracker(window_seconds=30, prom_port=args.prom_port)
     metrics.start_prometheus()
 
     client = ResilientStreamingClient(
         metrics,
+        profile_json=profile_path,
         enable_pii=not args.no_pii,
     )
 

@@ -33,13 +33,49 @@ from pii_encryptor import PIIEncryptor
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
+# Profile resolution: --profile CLI > SNOWFLAKE_PROFILE env var > "default"
+# ---------------------------------------------------------------------------
+_PROFILES_DIR = os.path.join(os.path.dirname(__file__), "..", "profiles")
+
+
+def resolve_profile(profile_name: Optional[str] = None) -> str:
+    """Return the absolute path to a profile JSON file.
+
+    Resolution order:
+      1. Explicit *profile_name* argument  (from --profile CLI flag)
+      2. SNOWFLAKE_PROFILE environment variable
+      3. Falls back to "default"
+
+    Looks for ``profiles/profile_{name}.json`` relative to the project root.
+    """
+    name = (
+        profile_name
+        or os.environ.get("SNOWFLAKE_PROFILE")
+        or "default"
+    )
+    path = os.path.join(_PROFILES_DIR, f"profile_{name}.json")
+    if not os.path.isfile(path):
+        available = [
+            f.replace("profile_", "").replace(".json", "")
+            for f in os.listdir(_PROFILES_DIR)
+            if f.startswith("profile_") and f.endswith(".json")
+            and not f.endswith(".example")
+        ]
+        raise FileNotFoundError(
+            f"Profile '{name}' not found at {path}\n"
+            f"Available profiles: {available}"
+        )
+    logger.info("Using profile: %s  (%s)", name, path)
+    return path
+
+
+# ---------------------------------------------------------------------------
 # Configuration defaults
 # ---------------------------------------------------------------------------
 _DEFAULTS = {
     "database": "TELCO_ANALYTICS",
     "schema": "CDR_STREAMING_300",
     "pipe_name": "CDR_STREAMING_PIPE_300",
-    "profile_json": os.path.join(os.path.dirname(__file__), "..", "profile.json"),
     "max_retries": 3,
     "base_backoff_s": 1.0,
     "max_backoff_s": 30.0,
@@ -82,7 +118,7 @@ class DeadLetterQueue:
         *,
         database: str = _DEFAULTS["database"],
         schema: str = _DEFAULTS["schema"],
-        profile_json: str = _DEFAULTS["profile_json"],
+        profile_json: Optional[str] = None,
         dlq_pipe: str = "CDR_DLQ_PIPE_300",
     ):
         self._records: List[Tuple[Dict, str, str]] = []
@@ -178,7 +214,7 @@ class ResilientStreamingClient:
         database: str = _DEFAULTS["database"],
         schema: str = _DEFAULTS["schema"],
         pipe_name: str = _DEFAULTS["pipe_name"],
-        profile_json: str = _DEFAULTS["profile_json"],
+        profile_json: Optional[str] = None,
         max_retries: int = _DEFAULTS["max_retries"],
         base_backoff_s: float = _DEFAULTS["base_backoff_s"],
         max_backoff_s: float = _DEFAULTS["max_backoff_s"],

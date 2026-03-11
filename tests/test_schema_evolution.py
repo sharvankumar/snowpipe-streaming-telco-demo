@@ -31,6 +31,7 @@ sys.path.insert(0, os.path.join(_PROJECT_ROOT, "src"))
 os.environ.setdefault("SS_LOG_LEVEL", "warn")
 
 from snowflake.ingest.streaming import StreamingIngestClient
+from streaming_client import resolve_profile
 
 logging.basicConfig(
     level=logging.INFO,
@@ -38,7 +39,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-PROFILE_JSON = os.path.join(_PROJECT_ROOT, "profile.json")
+PROFILE_JSON = resolve_profile()
 DATABASE = "TELCO_ANALYTICS"
 SCHEMA = "CDR_STREAMING_300"
 PIPE = "CDR_SCHEMA_EVOLVE_PIPE_300"

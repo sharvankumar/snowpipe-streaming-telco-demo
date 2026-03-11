@@ -73,7 +73,12 @@ flowchart TD
 snowpipe-streaming-telco-demo/
 ├── README.md
 ├── requirements.txt
-├── profile.json.example        # Credential template (copy → profile.json)
+│
+├── profiles/                     # Snowflake connection profiles
+│   ├── profile_default.json.example
+│   ├── profile_afe.json.example
+│   ├── profile_default.json      # ← your credentials (gitignored)
+│   └── profile_afe.json          # ← your credentials (gitignored)
 │
 ├── sql/
 │   └── 01_snowflake_setup.sql  # DDL: tables, pipes, views, roles, grants
@@ -111,11 +116,13 @@ Open `sql/01_snowflake_setup.sql` in Snowflake and run it. This creates:
 
 ### 2. Configure credentials
 
+Copy an example profile and fill in your credentials:
+
 ```bash
-cp profile.json.example profile.json
+cp profiles/profile_default.json.example profiles/profile_default.json
 ```
 
-Edit `profile.json` with your Snowflake account details:
+Edit `profiles/profile_default.json` with your Snowflake account details:
 
 ```json
 {
@@ -128,6 +135,10 @@ Edit `profile.json` with your Snowflake account details:
 ```
 
 > Generate the private key value: `base64 -i rsa_key.p8 | tr -d '\n'`
+
+You can create multiple profiles for different accounts (e.g. `profile_afe.json`,
+`profile_dev.json`). All `profile_*.json` files are gitignored; only `.example`
+files are tracked.
 
 ### 3. Install dependencies
 
@@ -154,6 +165,34 @@ python src/run_demo.py --bad-pct 0.10       # 10% bad records
 python src/run_demo.py --no-pii             # disable PII encryption
 python src/run_demo.py --prom-port 9200     # custom Prometheus port
 python src/run_demo.py --batch-size 200     # larger batches
+python src/run_demo.py --profile afe        # use profiles/profile_afe.json
+```
+
+---
+
+## Switching Snowflake Accounts
+
+Profile resolution follows this priority order:
+
+| Priority | Method | Example |
+|----------|--------|---------|
+| 1 (highest) | `--profile` CLI flag | `python src/run_demo.py --profile afe` |
+| 2 | `SNOWFLAKE_PROFILE` env var | `export SNOWFLAKE_PROFILE=afe` |
+| 3 (fallback) | Default | Uses `profiles/profile_default.json` |
+
+### Available profiles
+
+| Profile name | File | Account |
+|-------------|------|---------|
+| `default` | `profiles/profile_default.json` | SFPSCOGS-AWS_CAS2 |
+| `afe` | `profiles/profile_afe.json` | SFSENORTHAMERICA-AFE_AMERICAS |
+
+### Adding a new profile
+
+```bash
+cp profiles/profile_default.json.example profiles/profile_myaccount.json
+# Edit with your credentials, then:
+python src/run_demo.py --profile myaccount
 ```
 
 ---
