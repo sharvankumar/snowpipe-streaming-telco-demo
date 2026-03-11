@@ -193,8 +193,8 @@ Profile resolution follows this priority order:
 
 | Profile name | File | Account |
 |-------------|------|---------|
-| `default` | `profiles/profile_default.json` | YOURACCOUNT |
-| `afe` | `profiles/profile_afe.json` | YOURACCOUNT-xxxx_xxxx |
+| `default` | `profiles/profile_default.json` | YOURACCOUNT-xxxxxx |
+| `afe` | `profiles/profile_afe.json` | YOURACCOUNT-DEV_AMERICAS |
 
 ### Adding a new profile
 
