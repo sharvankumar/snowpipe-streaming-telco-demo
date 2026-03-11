@@ -184,8 +184,8 @@ Profile resolution follows this priority order:
 
 | Profile name | File | Account |
 |-------------|------|---------|
-| `default` | `profiles/profile_default.json` | SFPSCOGS-AWS_CAS2 |
-| `afe` | `profiles/profile_afe.json` | SFSENORTHAMERICA-AFE_AMERICAS |
+| `default` | `profiles/profile_default.json` | YOURACCOUNT-xxxxxx |
+| `afe` | `profiles/profile_afe.json` | YOURACCOUNT-DEV_AMERICAS |
 
 ### Adding a new profile
 
