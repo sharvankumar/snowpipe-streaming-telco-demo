@@ -236,26 +236,42 @@ automatically evolves the `CDR_RECORDS_EVOLVED_300` table schema.
 
 ## Architecture
 
-```
-  CDR Generator ──► PII Encryptor ──► Metadata Enrichment ──► Validation
-                    (AES-Fernet)      (channel_id,              │
-                                       stream_offset,      ┌────┴────┐
-                                       pipe_id)            │ PASS    │ FAIL → DLQ
-                                                           ▼
-                                                     append_row()
-                                                           │  HTTP-aware retry
-                                                           │  409 → channel reopen
-                                                           │  429 → throttle backoff
-                                                           │  401/403 → abort
-                                                           │  500/503 → exp backoff
-                                                           ▼
-                                                     Snowflake PIPE
-                                                     (in-flight transforms)
-                                                           ▼
-                                                     CDR_RECORDS_300
-                                                           │
-                                              Prometheus ◄─┤
-                                              Dashboard  ◄─┘ (Streamlit in Snowflake)
+```mermaid
+flowchart TD
+    A[CDR Generator] --> B["PII Encryptor\n(AES-Fernet)"]
+    B --> C["Metadata Enrichment\n(channel_id, stream_offset, pipe_id)"]
+    C --> D{Validation}
+
+    D -- PASS --> E["append_row()"]
+    D -- FAIL --> DLQ[(Dead Letter Queue)]
+
+    E --> R{"HTTP-aware Retry"}
+    R -- "409" --> R1["Channel Reopen"]
+    R -- "429" --> R2["Throttle Backoff"]
+    R -- "401 / 403" --> R3["Abort"]
+    R -- "500 / 503" --> R4["Exponential Backoff"]
+    R1 --> E
+    R2 --> E
+    R4 --> E
+
+    E -- Success --> F["Snowflake PIPE\n(in-flight transforms:\nUPPER, TRIM, ROUND,\nTRY_TO_GEOGRAPHY,\nTRY_TO_GEOMETRY)"]
+    F --> G[(CDR_RECORDS_300)]
+
+    G --> H["Prometheus\n(:50000 SDK · :9100 App)"]
+    G --> I["Streamlit Dashboard\n(Streamlit in Snowflake)"]
+
+    style A fill:#4a9eff,color:#fff
+    style B fill:#ff6b6b,color:#fff
+    style C fill:#ffa94d,color:#fff
+    style D fill:#845ef7,color:#fff
+    style DLQ fill:#e03131,color:#fff
+    style E fill:#51cf66,color:#fff
+    style F fill:#339af0,color:#fff
+    style G fill:#20c997,color:#fff
+    style H fill:#fab005,color:#000
+    style I fill:#fab005,color:#000
+    style R fill:#845ef7,color:#fff
+    style R3 fill:#e03131,color:#fff
 ```
 
 ---
