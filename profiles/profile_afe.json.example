@@ -3,5 +3,5 @@
   "user": "<your_snowflake_user>",
   "url": "SFSENORTHAMERICA-AFE_AMERICAS.snowflakecomputing.com:443",
   "role": "CDR_STREAMING_ROLE_300",
-  "private_key": "<base64_encoded_private_key>"
+  "private_key": "<content from .p8 PEM file, without BEGIN/END lines, all on one line>"
 }

@@ -336,8 +336,16 @@ WHERE TABLE_SCHEMA = 'CDR_STREAMING_300'
 ORDER BY ORDINAL_POSITION;
 
 -- =====================================================================
--- 8. Role + grants
+-- 8. Service user + role + grants
 -- =====================================================================
+
+-- Create a service user for the streaming application
+CREATE OR REPLACE USER CDR_STREAMING_USER
+    PASSWORD = 'xxxxxxxx'  -- Use key-pair auth in production!
+    DEFAULT_ROLE = CDR_STREAMING_ROLE_300
+    DEFAULT_WAREHOUSE = CDR_STREAMING_WH_300
+    COMMENT = 'Service account for CDR streaming ingestion';
+
 CREATE ROLE IF NOT EXISTS CDR_STREAMING_ROLE_300;
 
 GRANT USAGE  ON WAREHOUSE CDR_STREAMING_WH_300      TO ROLE CDR_STREAMING_ROLE_300;

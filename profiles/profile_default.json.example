@@ -3,5 +3,5 @@
   "user": "<your_snowflake_user>",
   "url": "https://<your_account>.snowflakecomputing.com:443",
   "role": "CDR_STREAMING_ROLE_300",
-  "private_key": "<base64_encoded_private_key — run: base64 -i rsa_key.p8 | tr -d '\\n'>"
+  "private_key": "<content from .p8 PEM file, without BEGIN/END lines, all on one line>"
 }

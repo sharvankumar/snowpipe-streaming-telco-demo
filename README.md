@@ -130,11 +130,20 @@ Edit `profiles/profile_default.json` with your Snowflake account details:
   "user": "<your_snowflake_user>",
   "url": "https://<your_account>.snowflakecomputing.com:443",
   "role": "CDR_STREAMING_ROLE_300",
-  "private_key": "<base64_encoded_private_key>"
+  "private_key": "<private_key_content>"
 }
 ```
 
-> Generate the private key value: `base64 -i rsa_key.p8 | tr -d '\n'`
+> To get the `private_key` value, extract the key content from your `.p8` PEM
+> file into a single line:
+>
+> ```bash
+> grep -v '^\-\-' rsa_key.p8 | tr -d '\n'
+> ```
+>
+> This strips the `-----BEGIN PRIVATE KEY-----` / `-----END PRIVATE KEY-----`
+> lines and removes all newlines. Paste the output into the `private_key` field.
+> (Ignore the `%` at the end if you see one — that's just zsh indicating no trailing newline.)
 
 You can create multiple profiles for different accounts (e.g. `profile_afe.json`,
 `profile_dev.json`). All `profile_*.json` files are gitignored; only `.example`
@@ -184,8 +193,8 @@ Profile resolution follows this priority order:
 
 | Profile name | File | Account |
 |-------------|------|---------|
-| `default` | `profiles/profile_default.json` | SFPSCOGS-AWS_CAS2 |
-| `afe` | `profiles/profile_afe.json` | SFSENORTHAMERICA-AFE_AMERICAS |
+| `default` | `profiles/profile_default.json` | YOURACCOUNT |
+| `afe` | `profiles/profile_afe.json` | YOURACCOUNT-xxxx_xxxx |
 
 ### Adding a new profile
 
@@ -239,9 +248,22 @@ curl http://127.0.0.1:50000/metrics    # SDK metrics
 curl http://127.0.0.1:9100/metrics     # App metrics
 ```
 
+To visualize these metrics, connect the endpoints to your Prometheus server. You
+can run Prometheus + Grafana in containers for a quick local setup:
+
+```bash
+docker run -d --name prometheus --net=host -v $(pwd)/prometheus.yml:/etc/prometheus/prometheus.yml prom/prometheus
+docker run -d --name grafana --net=host grafana/grafana
+```
+
 ### Prometheus scrape config
 
+Add the following to your `prometheus.yml` (or create one in the project root):
+
 ```yaml
+global:
+  scrape_interval: 15s
+
 scrape_configs:
   - job_name: snowpipe_streaming_sdk
     static_configs:
@@ -250,6 +272,9 @@ scrape_configs:
     static_configs:
       - targets: ['127.0.0.1:9100']
 ```
+
+Once running, access Prometheus at `http://localhost:9090` and Grafana at
+`http://localhost:3000` (default login: admin/admin).
 
 ### App-level metrics reference
 
